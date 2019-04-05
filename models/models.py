@@ -27,10 +27,15 @@ class Address(Document):
     """
     Data Model for a Cryptocurrency address
     """
-    _id = StringField(required=True)
-    time = IntField(required=True)
+    addr = StringField(required=True)
+    time = IntField(required=True) # time address first shows up in blockchain
     curr_wealth = IntField(default=0)
-    used_as_input = ListField(EmbeddedDocumentField(Transaction))
-    used_as_output = ListField(EmbeddedDocumentField(Transaction))
+    used_as_input = ListField(ReferenceField(Transaction))
+    used_as_output = ListField(ReferenceField(Transaction))
 
-    meta = {'allow_inheritance': True}
+    meta = {'allow_inheritance': True,
+            'indexes': [
+            '#addr',
+            'curr_wealth',
+        ]
+    }

@@ -22,7 +22,5 @@ class TxOutputAddrInfo(EmbeddedDocument):
 
 
 class BtcTransaction(Transaction):
-    _id = IntField(required=True)
-    tx_input_val = IntField()
     input_addrs = ListField(EmbeddedDocumentField(TxInputAddrInfo))
     output_addrs = ListField(EmbeddedDocumentField(TxOutputAddrInfo))
