@@ -5,7 +5,7 @@ def clear_db():
     BtcTransaction.drop_collection()
 
 if __name__ == "__main__":
-    # clear_db()
+    clear_db()
     '''tx_hash = "8f1f7c3c476c102781aa06bd162d21d546cf14a259c40336ea58a6c28a853941"
     tx = BtcTransaction.objects(hash=tx_hash).first()
     for in_addr in tx.input_addrs:

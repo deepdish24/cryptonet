@@ -4,8 +4,8 @@ from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutp
 
 rpc_user = "deepans"
 rpc_passwd = "passwd"
-curr_block = 119910
-# curr_block = 100000
+# curr_block = 119910
+curr_block = 100000
 
 # Function retrives an address object for the given wallet address.
 # If wallet addreass has not been, new object is created
@@ -71,6 +71,10 @@ def parse_coinbase(tx_hash, rpc_connection):
         tx_hash, block_reward, False, is_coinbase=True)
     addr_obj.save()
 
+    tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=curr_block, 
+        tx_fees=0, tx_val=block_reward, coinbase_tx=True)
+    tx.save()
+
     print("Coinbase Outs: %s, %d" % (output_addr, block_reward))
 
 def save_to_db(tx):
@@ -89,7 +93,7 @@ def save_to_db(tx):
     out_addrs = tx['out']
     in_addrs = tx['in']
 
-    distinct_inputs_dct = coalesce_input_addrs(in_addrs)
+    distinct_inputs_dct = coalesce_input_addrs([(y, z) for x, y, z in in_addrs])
 
     # address to BtcAddress object dict
     distinct_in_addrs = {}
@@ -100,14 +104,14 @@ def save_to_db(tx):
 
 
     # retrieve/create BtcAddress objects for tx inputs
-    for addr, value in in_addrs:
+    for funding_tx, addr, value in in_addrs:
         if addr not in distinct_in_addrs:
             curr_wealth = distinct_inputs_dct[addr]
             addr_obj = get_addr_object(addr, tx['time'], tx['hash'], curr_wealth, True)
             distinct_in_addrs[addr] = addr_obj
 
         tx_in = TxInputAddrInfo(address=distinct_in_addrs[addr], value=value, 
-            wealth=addr_obj.curr_wealth, tx=tx['hash'])
+            wealth=addr_obj.curr_wealth, tx=funding_tx)
         tx_input_addrs.append(tx_in)
     
     # retrieve/create BtcAddress objects for tx outputs
@@ -154,10 +158,3 @@ for tx_hash in transactions[1:]:
     save_to_db(tx)
     print("Saved to DB")
     print("-----------------")
-
-
-'''tx_hash = "7ce0a971cf6af300dbd4be8f4a077ee0cdfbbf74a11804b8ac06a71b7c2f386a"
-print(tx_hash)
-print("=========================")
-tx = get_tx(tx_hash, rpc_connection)
-print(tx)'''

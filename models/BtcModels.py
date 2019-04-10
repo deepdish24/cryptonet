@@ -32,5 +32,6 @@ class TxOutputAddrInfo(EmbeddedDocument):
 
 
 class BtcTransaction(Transaction):
-    input_addrs = ListField(EmbeddedDocumentField(TxInputAddrInfo))
-    output_addrs = ListField(EmbeddedDocumentField(TxOutputAddrInfo))
+    coinbase_tx = BooleanField(default=False)
+    input_addrs = ListField(EmbeddedDocumentField(TxInputAddrInfo), default=list)
+    output_addrs = ListField(EmbeddedDocumentField(TxOutputAddrInfo), default=list)
