@@ -1,11 +1,13 @@
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from btc_functions import get_tx, get_out_addrs, get_in_addrs, get_raw_tx, coalesce_input_addrs
 from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutputAddrInfo
+import sys
 
 rpc_user = "deepans"
 rpc_passwd = "passwd"
 # curr_block = 119910
-curr_block = 100000
+# curr_block = 100000
+# curr_block = 0
 
 # Function retrives an address object for the given wallet address.
 # If wallet addreass has not been, new object is created
@@ -29,6 +31,9 @@ def get_addr_object(address, address_creation_time,
                     database
     """
 
+    if BtcTransaction.objects(hash=tx_hash).first():
+        return
+
     addr_obj = BtcAddress.objects(addr=address).first()
     if not addr_obj:
         addr_obj = BtcAddress(addr=address, time=address_creation_time)
@@ -47,7 +52,7 @@ def get_addr_object(address, address_creation_time,
     
     return addr_obj
 
-def parse_coinbase(tx_hash, rpc_connection):
+def parse_coinbase(tx_hash, rpc_connection, block_num):
     """
     Function to correctly parse the coinbase of each transaction. 
     
@@ -64,6 +69,9 @@ def parse_coinbase(tx_hash, rpc_connection):
 
     """
 
+    if BtcTransaction.objects(hash=tx_hash).first():
+        return
+
     tx = get_raw_tx(tx_hash, rpc_connection)
     out_addrs = get_out_addrs(tx)
     output_addr, block_reward = out_addrs.pop()
@@ -72,13 +80,12 @@ def parse_coinbase(tx_hash, rpc_connection):
         tx_hash, block_reward, False, is_coinbase=True)
     addr_obj.save()
 
-    tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=curr_block, 
+    tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=block_num, 
         tx_fees=0, tx_val=block_reward, coinbase_tx=True)
     tx.save()
 
-    print("Coinbase Outs: %s, %d" % (output_addr, block_reward))
 
-def save_to_db(tx):
+def save_to_db(tx, block_num):
     """
     Function to correctly parse transaciton information, update existing records
     with new information, and save all updates to the MongoDB database. 
@@ -138,16 +145,51 @@ def save_to_db(tx):
         addr_obj.save()
     
     tx_obj = BtcTransaction(hash=tx['hash'], time=tx['time'], 
-        block_num=curr_block,tx_fees=tx['fees'], tx_val=tx['value'], 
+        block_num=block_num,tx_fees=tx['fees'], tx_val=tx['value'], 
         input_addrs=tx_input_addrs, output_addrs=tx_output_addrs)
     tx_obj.save()
 
-rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
+def parse_block(rpc_connection, block_num):
+    block_hash = rpc_connection.getblockhash(block_num)
+    block = rpc_connection.getblock(block_hash)
+    transactions = block['tx']
+
+    parse_coinbase(transactions[0], rpc_connection, block_num)
+
+    for tx_hash in transactions[1:]:
+        tx = get_tx(tx_hash, rpc_connection)
+        try:
+            save_to_db(tx, block_num)
+        except Exception as e:
+            print("Exception occured while parsing tx: ", tx['hash'])
+            print(e)
+            sys.exit(1)
+            
+
+def crawl(starting_block=0):
+    rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
+    best_block_hash = rpc_connection.getbestblockhash()
+    tgt_block_height = rpc_connection.getblock(best_block_hash)['height']
+
+    while starting_block != tgt_block_height:
+        print("Parsing block: ", starting_block)
+        parse_block(rpc_connection, starting_block)
+        starting_block += 1
+
+
+if __name__ == "__main__":
+    starting_block = int(sys.argv[1])
+    crawl(starting_block=starting_block)
+
+
+
+'''rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
 # best_block_hash = rpc_connection.getbestblockhash()
 # block = rpc_connection.getblock(best_block_hash)
 
 block_hash = rpc_connection.getblockhash(curr_block)
 block = rpc_connection.getblock(block_hash);
+print(block)
 print("Block Hash: ", block['hash'])
 transactions = block['tx']
 
@@ -158,4 +200,4 @@ for tx_hash in transactions[1:]:
     print(tx['hash'])
     save_to_db(tx)
     print("Saved to DB")
-    print("-----------------")
+    print("-----------------")'''
