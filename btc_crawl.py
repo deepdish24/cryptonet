@@ -35,6 +35,7 @@ def get_addr_object(address, address_creation_time,
     
     if is_coinbase:
         addr_obj.curr_wealth += addr_tx_value
+        addr_obj.used_as_output.append(tx_hash)
         return addr_obj
 
     if is_input_addr:
