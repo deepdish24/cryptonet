@@ -3,23 +3,32 @@ MongoDB ORM models for Bitcoin Transaction Data
 """
 from mongoengine import *
 from models.models import Transaction, Address
-connect(db='cryptodb')
+
+def get_db_credentials(credentials_file):
+    with open(credentials_file) as f:
+        username = f.readline()[:-1]
+        password = f.readline()[:-1]
+    return (username, password)
+
+username, password = get_db_credentials('credentials/mongo_credentials')
+
+connect(db='cryptodb', username=username, password=password, authentication_source='admin')
 
 class BtcAddress(Address):
-    neighbor_addrs = ListField(ReferenceField(Address))
+    neighbor_addrs = ListField(StringField(), default=list)
 
 
 class TxInputAddrInfo(EmbeddedDocument):
     address = ReferenceField(BtcAddress)
-    value = IntField(required=True)
-    wealth = IntField(required=True)
+    value = LongField(required=True)
+    wealth = LongField(required=True)
     tx = StringField(required=True)
 
 
 class TxOutputAddrInfo(EmbeddedDocument):
     address = ReferenceField(BtcAddress)
-    value = IntField(required=True)
-    wealth = IntField(required=True)
+    value = LongField(required=True)
+    wealth = LongField(required=True)
 
 
 class BtcTransaction(Transaction):

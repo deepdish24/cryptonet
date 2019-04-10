@@ -12,7 +12,7 @@ class Transaction(Document):
     time = IntField(required=True)
     block_num = IntField(required=True)
     tx_fees = IntField()
-    tx_val = IntField()
+    tx_val = LongField()
 
     meta = {
         'allow_inheritance': True,
@@ -28,9 +28,9 @@ class Address(Document):
     """
     addr = StringField(primary_key=True)
     time = IntField(required=True) # time address first shows up in blockchain
-    curr_wealth = IntField(default=0)
-    used_as_input = ListField(ReferenceField(Transaction))
-    used_as_output = ListField(ReferenceField(Transaction))
+    curr_wealth = LongField(default=0)
+    used_as_input = ListField(StringField(), default=list)
+    used_as_output = ListField(StringField(), default=list)
 
     meta = {'allow_inheritance': True,
             'indexes': [
