@@ -32,7 +32,8 @@ class Address(Document):
     used_as_input = ListField(StringField(), default=list)
     used_as_output = ListField(StringField(), default=list)
 
-    meta = {'allow_inheritance': True,
+    meta = {
+        'allow_inheritance': True,
             'indexes': [
             'curr_wealth',
         ]

@@ -19,14 +19,14 @@ class BtcAddress(Address):
 
 
 class TxInputAddrInfo(EmbeddedDocument):
-    address = ReferenceField(BtcAddress)
+    address = StringField()
     value = LongField(required=True)
     wealth = LongField(required=True)
     tx = StringField(required=True)
 
 
 class TxOutputAddrInfo(EmbeddedDocument):
-    address = ReferenceField(BtcAddress)
+    address = StringField()
     value = LongField(required=True)
     wealth = LongField(required=True)
 

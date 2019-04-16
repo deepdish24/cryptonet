@@ -1,5 +1,7 @@
 from bitcoinrpc.authproxy import JSONRPCException
+
 btc_unit = 100000000
+undecodable_address = "UnableToDecodeAddress"
 
 def get_tx(tx_hash, rpc_connection):
     """
@@ -70,6 +72,13 @@ def get_out_addrs(tx):
     out_addrs = [(x[0], y) for x, y in out_info if len(x) >= 1]
     return out_addrs
 
+
+def get_out_addrs_for_inputs(tx):
+    out_info = [(x['scriptPubKey']['addresses'], (int) (x['value'] * btc_unit)) if 'addresses' in x['scriptPubKey'] 
+        else (undecodable_address, (int) (x['value'] * btc_unit)) for x in tx['vout']]
+    out_addrs = [(x[0], y) for x, y in out_info if len(x) >= 1]
+    return out_addrs
+
 def get_in_addrs(tx, rpc_connection):
     """
     Function that returns a list of tuples from parsing the transaction input addresses. 
@@ -85,7 +94,7 @@ def get_in_addrs(tx, rpc_connection):
             wallet_address, amnt of bitcoin sent)
     """
     funding_txs = [(get_raw_tx(x['txid'], rpc_connection), x['vout'])for x in tx['vin']]
-    lst = [(tx['hash'], get_out_addrs(tx)[out_inx]) for tx, out_inx in funding_txs]
+    lst = [(tx['hash'], get_out_addrs_for_inputs(tx)[out_inx]) for tx, out_inx in funding_txs]
     return [(x, y[0], y[1]) for x, y in lst]
 
 def coalesce_input_addrs(tx_input):
