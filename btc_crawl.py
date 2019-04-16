@@ -1,6 +1,7 @@
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from btc_functions import get_tx, get_out_addrs, get_in_addrs, get_raw_tx, coalesce_input_addrs
 from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutputAddrInfo
+import traceback
 import sys
 
 rpc_user = "deepans"
@@ -127,6 +128,9 @@ def save_to_db(tx, block_num):
         void: Funciton stores new records/updates to records in database
     """
 
+    if BtcTransaction.objects(hash=tx['hash']).first():
+        return
+
     out_addrs = tx['out']
     in_addrs = tx['in']
 
@@ -193,6 +197,7 @@ def parse_block(rpc_connection, block_num):
         except Exception as e:
             print("Exception occured while parsing tx: ", tx['hash'])
             print(e)
+            traceback.print_exc()
             sys.exit(1)
             
 
@@ -208,7 +213,8 @@ def crawl(starting_block=0):
 
 
 if __name__ == "__main__":
-    starting_block = int(sys.argv[1])
+    # starting_block = int(sys.argv[1])
+    starting_block = 160437
     crawl(starting_block=starting_block)
 
 
