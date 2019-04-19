@@ -19,30 +19,6 @@ print(result["1JyDazZuKP6CqYGhqcQurLM5AWZmn9RRGs"].curr_wealth)
 #result = BtcAddress.objects(addr=lst[0]).update_one(set__curr_wealth=102, push__used_as_input="testhere2", full_result=True)
 #print(result.raw_result)'''
 
-for addr in BtcAddress.objects.all():
-    if len(addr.neighbor_addrs) > 0:
-        print("address: ", addr.addr)
-        print("neighbors: ", addr.neighbor_addrs);
-        break
 
-
-'''tx = BtcTransaction.objects(hash=tx_hash).first()
-print(tx.hash)
-print(tx.tx_val)
-
-addrs = [x.address.addr for x in tx.input_addrs]
-addrs.append("deepan")
-print(addrs)
-
-dct = BtcAddress.objects.in_bulk(addrs)
-for object_id, addr in dct.items():
-    print(object_id + ", " + str(addr.curr_wealth))'''
-
-'''tx = get_raw_tx(tx_hash, rpc_connection)
-get_in_addrs(tx, rpc_connection)'''
-
-'''tx = get_raw_tx(funding_tx, rpc_connection)
-out_addrs = get_out_addrs_for_inputs(tx)
-print(tx['vout'])
-print("===============")
-print(out_addrs)'''
+x = BtcAddress.objects.order_by("-ref_id").limit(-1).first()
+print(x.time)
