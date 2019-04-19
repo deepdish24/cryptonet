@@ -9,6 +9,7 @@ class Transaction(Document):
     assigned in the model that inherits this model
     """
     hash = StringField(primary_key=True)
+    ref_id = SequenceField()
     time = IntField(required=True)
     block_num = IntField(required=True)
     tx_fees = IntField()
@@ -17,7 +18,8 @@ class Transaction(Document):
     meta = {
         'allow_inheritance': True,
         'indexes': [
-            'time'
+            'time',
+            'ref_id'
         ]
     }
 
@@ -27,14 +29,16 @@ class Address(Document):
     Data Model for a Cryptocurrency address
     """
     addr = StringField(primary_key=True)
+    ref_id = SequenceField()
     time = IntField(required=True) # time address first shows up in blockchain
     curr_wealth = LongField(default=0)
-    used_as_input = ListField(StringField(), default=list)
-    used_as_output = ListField(StringField(), default=list)
+    used_as_input = ListField(IntField(), default=list)
+    used_as_output = ListField(IntField(), default=list)
 
     meta = {
         'allow_inheritance': True,
             'indexes': [
-            'curr_wealth'
+                'ref_id',
+                'curr_wealth'
         ]
     }

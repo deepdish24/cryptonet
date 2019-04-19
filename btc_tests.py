@@ -5,7 +5,7 @@ from btc_functions import (get_tx, get_out_addrs, get_in_addrs,
     get_raw_tx, coalesce_input_addrs, get_out_addrs_for_inputs)
 from btc_crawl import rpc_user, rpc_passwd
 
-rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
+'''rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
 
 address = "1BNwxHGaFbeUBitpjy2AsKpJ29Ybxntqvb"
 tx_hash = "8ebe1df6ebf008f7ec42ccd022478c9afaec3ca0444322243b745aa2e317c272"
@@ -17,7 +17,14 @@ result = BtcAddress.objects.only("addr").in_bulk(lst)
 print(result)
 print(result["1JyDazZuKP6CqYGhqcQurLM5AWZmn9RRGs"].curr_wealth)
 #result = BtcAddress.objects(addr=lst[0]).update_one(set__curr_wealth=102, push__used_as_input="testhere2", full_result=True)
-#print(result.raw_result)
+#print(result.raw_result)'''
+
+for addr in BtcAddress.objects.all():
+    if len(addr.neighbor_addrs) > 0:
+        print("address: ", addr.addr)
+        print("neighbors: ", addr.neighbor_addrs);
+        break
+
 
 '''tx = BtcTransaction.objects(hash=tx_hash).first()
 print(tx.hash)

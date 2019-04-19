@@ -15,18 +15,18 @@ username, password = get_db_credentials('credentials/mongo_credentials')
 connect(db='cryptodb', username=username, password=password, authentication_source='admin')
 
 class BtcAddress(Address):
-    neighbor_addrs = ListField(StringField(), default=list)
+    neighbor_addrs = ListField(IntField(), default=list)
 
 
 class TxInputAddrInfo(EmbeddedDocument):
-    address = StringField()
+    address = IntField()
     value = LongField(required=True)
     wealth = LongField(required=True)
     tx = StringField(required=True)
 
 
 class TxOutputAddrInfo(EmbeddedDocument):
-    address = StringField()
+    address = IntField()
     value = LongField(required=True)
     wealth = LongField(required=True)
 

@@ -14,7 +14,7 @@ rpc_passwd = "passwd"
 # If wallet addreass has not been, new object is created
 # and returned
 def upsert_addr_objects(address_list, address_creation_time, 
-    tx_hash, addr_tx_value_dict, is_input_addr, is_coinbase=False):
+    addr_tx_value_dict, is_input_addr, is_coinbase=False):
     """
     Function retrives an address object for the given wallet address.
     If wallet address has not been seen, new object is created
@@ -33,32 +33,41 @@ def upsert_addr_objects(address_list, address_creation_time,
     """
 
     # create new addresses
-    existing_addrs = set([x.addr for x in BtcAddress.objects(addr__in=address_list).only("addr")])
+    addr_objs = {x.addr: x for x in BtcAddress.objects(addr__in=address_list).only("addr", "ref_id")}
+
+    existing_addrs = [y.addr for x, y in addr_objs.items()]
+    addr_ref_ids = [y.ref_id for x, y in addr_objs.items()]
+
     new_addrs = [y for y in address_list if y not in existing_addrs]
     new_addr_objs = []
     for address in new_addrs:
         addr_obj = BtcAddress(addr=address, time=address_creation_time)
         new_addr_objs.append(addr_obj)
+
     if new_addr_objs:
-        BtcAddress.objects.insert(new_addr_objs, load_bulk=False)
+        docs = BtcAddress.objects.insert(new_addr_objs)
+        for doc in docs:
+            addr_objs[doc.addr] = doc
+            addr_ref_ids.append(doc.ref_id)
     
     if is_coinbase:
         for address in address_list:
             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
-                push__used_as_output=tx_hash, upsert=False)
+                upsert=False)
         return
 
     for address in address_list:
         if is_input_addr:
-            neighbor_addrs = [x for x in address_list if x is not address]
+            ref_id = addr_objs[address].ref_id
+            neighbor_addrs = [x for x in addr_ref_ids if x is not ref_id]
             wealth_inc = -1 * addr_tx_value_dict[address]
             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=wealth_inc, 
-                push__used_as_input=tx_hash, add_to_set__neighbor_addrs=neighbor_addrs, upsert=False)
+                add_to_set__neighbor_addrs=neighbor_addrs, upsert=False)
         else:
              BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
-                push__used_as_output=tx_hash, upsert=False)
+                upsert=False)
     
-    return BtcAddress.objects.only("curr_wealth").in_bulk(address_list)
+    return BtcAddress.objects.only("curr_wealth", "ref_id").in_bulk(address_list)
 
 def parse_coinbase(tx_hash, rpc_connection, block_num):
     """
@@ -82,14 +91,16 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
 
     tx = get_raw_tx(tx_hash, rpc_connection)
     out_addrs_dict = dict(get_out_addrs(tx))
-    lst_addr_objs = []
-    upsert_addr_objects(out_addrs_dict.keys(), tx['time'], tx_hash, 
-        out_addrs_dict, False, is_coinbase=True)
+    lst_addr_objs = list(out_addrs_dict.keys())
+    upsert_addr_objects(lst_addr_objs, tx['time'], out_addrs_dict, False, is_coinbase=True)
     
     block_reward = sum(out_addrs_dict.values())
     tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=block_num, 
         tx_fees=0, tx_val=block_reward, coinbase_tx=True)
     tx.save()
+    tx.reload()
+
+    BtcAddress.objects(addr__in=lst_addr_objs).update(push__used_as_output=tx.ref_id)
 
 
 def save_to_db(tx, block_num):
@@ -114,10 +125,13 @@ def save_to_db(tx, block_num):
     distinct_inputs_dct = coalesce_input_addrs([(y, z) for x, y, z in in_addrs])
     outputs_dct = dict(out_addrs)
 
+    lst_input_addrs = list(distinct_inputs_dct.keys())
+    lst_output_addrs = list(outputs_dct.keys())
+
     # address to BtcAddress object dict
-    wealth_data_input = upsert_addr_objects(list(distinct_inputs_dct.keys()), tx['time'], 
-        tx['hash'], distinct_inputs_dct, True)
-    wealth_data_output = upsert_addr_objects(list(outputs_dct.keys()), tx['time'], tx['hash'], 
+    wealth_data_input = upsert_addr_objects(lst_input_addrs, tx['time'], 
+        distinct_inputs_dct, True)
+    wealth_data_output = upsert_addr_objects(lst_output_addrs, tx['time'], 
         outputs_dct, False)
 
 
@@ -128,14 +142,14 @@ def save_to_db(tx, block_num):
     # retrieve/create BtcAddress objects for tx inputs
     for funding_tx, addr, value in in_addrs:
         addr_obj = wealth_data_input[addr]
-        tx_in = TxInputAddrInfo(address=addr, value=value, 
+        tx_in = TxInputAddrInfo(address=addr_obj.ref_id, value=value, 
             wealth=addr_obj.curr_wealth, tx=funding_tx)
         tx_input_addrs.append(tx_in)
     
     # retrieve/create BtcAddress objects for tx outputs
     for addr, value in out_addrs:
         addr_obj = wealth_data_output[addr]
-        tx_out = TxOutputAddrInfo(address=addr, value=value, 
+        tx_out = TxOutputAddrInfo(address=addr_obj.ref_id, value=value, 
             wealth=addr_obj.curr_wealth - value)
         tx_output_addrs.append(tx_out)
     
@@ -143,6 +157,10 @@ def save_to_db(tx, block_num):
         block_num=block_num,tx_fees=tx['fees'], tx_val=tx['value'], 
         input_addrs=tx_input_addrs, output_addrs=tx_output_addrs)
     tx_obj.save()
+    tx_obj.reload()
+
+    BtcAddress.objects(addr__in=lst_input_addrs).update(push__used_as_input=tx_obj.ref_id)
+    BtcAddress.objects(addr__in=lst_output_addrs).update(push__used_as_output=tx_obj.ref_id)
 
 
 def parse_block(rpc_connection, block_num):
@@ -175,8 +193,8 @@ def crawl(starting_block=0):
 
 
 if __name__ == "__main__":
-    # starting_block = int(sys.argv[1])
-    starting_block = 139061
+    starting_block = int(sys.argv[1])
+    #starting_block = 139061
     crawl(starting_block=starting_block)
 
 
