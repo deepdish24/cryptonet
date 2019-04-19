@@ -6,6 +6,10 @@ import sys
 def get_cc():
     addrs = {x.ref_id: x for x in BtcAddress.
         objects.only('ref_id', 'neighbor_addrs', 'time').all()}
+
+    print("Min Time: ", min([x.time for x in addrs.values()]))
+    print("Max Time: ", max([x.time for x in addrs.values()]))
+
     num_nodes = max(addrs.keys()) + 1
     union_find = UF(num_nodes)
 
@@ -31,7 +35,7 @@ if __name__ == "__main__":
     #start_time = int(sys.argv[1])
     #end_time = int(sys.argv[2])
     #create_graph_file(start_time, end_time)
-    addr_objs = BtcAddress.objects.only('time').all()
-    print("Min Time: ", min([x.time for x in addr_objs]))
-    print("Max Time: ", max([x.time for x in addr_objs]))
+    # addr_objs = BtcAddress.objects.only('time').all()
+    # print("Min Time: ", min([x.time for x in addr_objs]))
+    # print("Max Time: ", max([x.time for x in addr_objs]))
     get_cc()
