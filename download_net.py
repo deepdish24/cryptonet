@@ -6,8 +6,20 @@ import sys
 def get_cc():
     addrs = {x.ref_id: x for x in BtcAddress.
         objects.only('ref_id', 'neighbor_addrs', 'time').all()}
-    
-    pass
+    num_nodes = max(addrs.keys()) + 1
+    union_find = UF(num_nodes)
+
+    print("identifying nodes...")
+    for identifer, addr_obj in addrs.items():
+        neighbor_addrs = addr_obj.neighbor_addrs
+        for reference in neighbor_addrs:
+            union_find.union(reference, identifer)
+    print("=====union find done=====")
+
+    uf_dict = {x: union_find.find(x) for x in addrs.keys()}
+
+    with open("pickles/cc.pickle", "wb") as f:
+        pickle.dump(uf_dict, handle)
 
 def create_graph_file(start_time, end_time):
     cc_dict = get_cc()
@@ -16,6 +28,10 @@ def create_graph_file(start_time, end_time):
         pass
 
 if __name__ == "__main__":
-    start_time = int(sys.argv[1])
-    end_time = int(sys.argv[2])
-    create_graph_file(start_time, end_time)
+    #start_time = int(sys.argv[1])
+    #end_time = int(sys.argv[2])
+    #create_graph_file(start_time, end_time)
+    addr_objs = BtcAddress.objects.only('time').all()
+    print("Min Time: ", min([x.time for x in addr_objs]))
+    print("Max Time: ", max([x.time for x in addr_objs]))
+    get_cc()
