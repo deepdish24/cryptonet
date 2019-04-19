@@ -32,11 +32,6 @@ def upsert_addr_objects(address_list, address_creation_time,
                     database
     """
 
-    if BtcTransaction.objects(hash=tx_hash).first():
-        return
-
-    # address_dict = BtcAddress.objects.in_bulk(address_list)
-
     # create new addresses
     existing_addrs = set([x.addr for x in BtcAddress.objects(addr__in=address_list).only("addr")])
     new_addrs = [y for y in address_list if y not in existing_addrs]
@@ -46,19 +41,11 @@ def upsert_addr_objects(address_list, address_creation_time,
         new_addr_objs.append(addr_obj)
     if new_addr_objs:
         BtcAddress.objects.insert(new_addr_objs, load_bulk=False)
-
-    '''for address in address_list:
-        if address not in address_dict:
-            addr_obj = BtcAddress(addr=address, time=address_creation_time)
-            address_dict[address] = addr_obj'''
     
     if is_coinbase:
         for address in address_list:
             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
                 push__used_as_output=tx_hash, upsert=False)
-            # addr_obj.curr_wealth += addr_tx_value_dict[address]
-            # addr_obj.used_as_output.append(tx_hash)
-        # return address_dict
         return
 
     for address in address_list:
@@ -67,15 +54,10 @@ def upsert_addr_objects(address_list, address_creation_time,
             wealth_inc = -1 * addr_tx_value_dict[address]
             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=wealth_inc, 
                 push__used_as_input=tx_hash, add_to_set__neighbor_addrs=neighbor_addrs, upsert=False)
-            # addr_obj.used_as_input.append(tx_hash)
-            # addr_obj.curr_wealth = max(0, addr_obj.curr_wealth - addr_tx_value_dict[address])
         else:
              BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
                 push__used_as_output=tx_hash, upsert=False)
-            # addr_obj.used_as_output.append(tx_hash)
-            # addr_obj.curr_wealth += addr_tx_value_dict[address]
     
-    # return address_dict
     return BtcAddress.objects.only("curr_wealth").in_bulk(address_list)
 
 def parse_coinbase(tx_hash, rpc_connection, block_num):
@@ -95,7 +77,7 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
 
     """
 
-    if BtcTransaction.objects(hash=tx_hash).first():
+    if BtcTransaction.objects(hash=tx_hash).only("hash").first():
         return
 
     tx = get_raw_tx(tx_hash, rpc_connection)
@@ -103,11 +85,6 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
     lst_addr_objs = []
     upsert_addr_objects(out_addrs_dict.keys(), tx['time'], tx_hash, 
         out_addrs_dict, False, is_coinbase=True)
-    
-    # BtcAddress.objects(list(addresses.values())).update(upsert=True, multi=True)
-    # BtcAddress.objects.insert(addresses.values(), load_bulk=False)
-    # for addr_obj in addresses.values():
-        # addr_obj.save()
     
     block_reward = sum(out_addrs_dict.values())
     tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=block_num, 
@@ -128,7 +105,7 @@ def save_to_db(tx, block_num):
         void: Funciton stores new records/updates to records in database
     """
 
-    if BtcTransaction.objects(hash=tx['hash']).first():
+    if BtcTransaction.objects(hash=tx['hash']).only("hash").first():
         return
 
     out_addrs = tx['out']
@@ -161,21 +138,6 @@ def save_to_db(tx, block_num):
         tx_out = TxOutputAddrInfo(address=addr, value=value, 
             wealth=addr_obj.curr_wealth - value)
         tx_output_addrs.append(tx_out)
-
-    '''# populate neighbors list for BtcAddress objects in distinct_in_addrs
-    lst_input_addresses = distinct_in_addrs.values()
-    for addr_obj in lst_input_addresses:
-        neighbor_lst = [x.addr for x in lst_input_addresses if x is not addr_obj]
-        curr_neighbors = set(addr_obj.neighbor_addrs)
-        addr_obj.neighbor_addrs = list(curr_neighbors.union(neighbor_lst))
-    
-    # save input and output BtcAddress objects
-    for addr_obj in distinct_in_addrs.values():
-        addr_obj.save()
-    # BtcAddress.objects.insert(distinct_in_addrs.values(), load_bulk=False)
-    # BtcAddress.objects.insert(out_addr_objs.values(), load_bulk=False)
-    for addr_obj in out_addr_objs.values():
-        addr_obj.save()'''
     
     tx_obj = BtcTransaction(hash=tx['hash'], time=tx['time'], 
         block_num=block_num,tx_fees=tx['fees'], tx_val=tx['value'], 
@@ -214,7 +176,7 @@ def crawl(starting_block=0):
 
 if __name__ == "__main__":
     # starting_block = int(sys.argv[1])
-    starting_block = 160437
+    starting_block = 139061
     crawl(starting_block=starting_block)
 
 

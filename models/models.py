@@ -35,6 +35,6 @@ class Address(Document):
     meta = {
         'allow_inheritance': True,
             'indexes': [
-            'curr_wealth',
+            'curr_wealth'
         ]
     }
