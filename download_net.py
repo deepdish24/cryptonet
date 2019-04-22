@@ -52,7 +52,7 @@ def create_graph_file(graph_file, start_time=0, end_time=0, use_pickle=False):
             ref_ids_set_input = set([x.address for x in tx.input_addrs])
             ref_ids_set_output = set([x.address for x in tx.output_addrs])
             if (not (ref_ids_set_input - valid_ref_ids)) or \
-                (not ref_ids_set_output - valid_ref_ids):
+                (not (ref_ids_set_output - valid_ref_ids)):
                 continue
 
             input_node_wealth = sum([x.wealth for x in tx.input_addrs])
@@ -63,13 +63,13 @@ def create_graph_file(graph_file, start_time=0, end_time=0, use_pickle=False):
                             for x in tx.input_addrs])
 
             
-            input_cc_id = cc_dict[ref_ids_set.pop()]
+            input_cc_id = cc_dict[ref_ids_set_input.pop()]
 
             for output_addr in tx.output_addrs:
                 output_node_creation_time = BtcAddress.objects(ref_id=output_addr.address) \
                     .only('time').first().time
                 output_node_wealth = output_addr.wealth
-                output_cc_id = cc_dict[output_addr.ref_id]
+                output_cc_id = cc_dict[output_addr.address]
                 line = str(input_cc_id) + "," + str(input_node_creation_time) + "," + \
                     str(input_node_wealth) + "," + str(tx.tx_val) + "," + str(tx.time) + \
                         "," + str(tx.ref_id) + "," + str(output_cc_id) + "," + \
