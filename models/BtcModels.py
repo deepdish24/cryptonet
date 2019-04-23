@@ -5,28 +5,38 @@ from mongoengine import *
 from models.models import Transaction, Address
 
 def get_db_credentials(credentials_file):
+    credentials_dict = {}
     with open(credentials_file) as f:
-        username = f.readline()[:-1]
-        password = f.readline()[:-1]
-    return (username, password)
+        for line in f.readlines():
+            key = line.split("=")[0]
+            value = line.split("=")[1][:-1]
+            credentials_dict[key] = value
+    return credentials_dict
 
-username, password = get_db_credentials('credentials/mongo_credentials')
-
-connect(db='cryptodb', username=username, password=password, authentication_source='admin')
+credentials = get_db_credentials('credentials/mongo_credentials')
+connect(
+    db='fast_cryptodb', 
+    host=credentials['host'], 
+    username=credentials['username'], 
+    password=credentials['password'], 
+    authentication_source='admin'
+)
 
 class BtcAddress(Address):
     neighbor_addrs = ListField(IntField(), default=list)
 
 
 class TxInputAddrInfo(EmbeddedDocument):
-    address = IntField()
+    address = LazyReferenceField(BtcAddress)
+    addr_ref_id = IntField(required=True)
     value = LongField(required=True)
     wealth = LongField(required=True)
     tx = StringField(required=True)
 
 
 class TxOutputAddrInfo(EmbeddedDocument):
-    address = IntField()
+    address = LazyReferenceField(BtcAddress)
+    addr_ref_id = IntField(required=True)
     value = LongField(required=True)
     wealth = LongField(required=True)
 

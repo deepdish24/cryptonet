@@ -1,6 +1,7 @@
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from btc_functions import get_tx, get_out_addrs, get_in_addrs, get_raw_tx, coalesce_input_addrs
 from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutputAddrInfo
+from models.models import AddressTransactionLink
 import traceback
 import sys
 
@@ -54,18 +55,17 @@ def upsert_addr_objects(address_list, address_creation_time,
         for address in address_list:
             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
                 upsert=False)
-        return
-
-    for address in address_list:
-        if is_input_addr:
-            ref_id = addr_objs[address].ref_id
-            neighbor_addrs = [x for x in addr_ref_ids if x is not ref_id]
-            wealth_inc = -1 * addr_tx_value_dict[address]
-            BtcAddress.objects(addr=address).update_one(inc__curr_wealth=wealth_inc, 
-                add_to_set__neighbor_addrs=neighbor_addrs, upsert=False)
-        else:
-             BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
-                upsert=False)
+    else:
+        for address in address_list:
+            if is_input_addr:
+                ref_id = addr_objs[address].ref_id
+                neighbor_addrs = [x for x in addr_ref_ids if x is not ref_id]
+                wealth_inc = -1 * addr_tx_value_dict[address]
+                BtcAddress.objects(addr=address).update_one(inc__curr_wealth=wealth_inc, 
+                    add_to_set__neighbor_addrs=neighbor_addrs, upsert=False)
+            else:
+                BtcAddress.objects(addr=address).update_one(inc__curr_wealth=addr_tx_value_dict[address], 
+                    upsert=False)
     
     return BtcAddress.objects.only("curr_wealth", "ref_id").in_bulk(address_list)
 
@@ -91,8 +91,8 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
 
     tx = get_raw_tx(tx_hash, rpc_connection)
     out_addrs_dict = dict(get_out_addrs(tx))
-    lst_addr_objs = list(out_addrs_dict.keys())
-    upsert_addr_objects(lst_addr_objs, tx['time'], out_addrs_dict, False, is_coinbase=True)
+    lst_addrs = list(out_addrs_dict.keys())
+    addr_dict = upsert_addr_objects(lst_addrs, tx['time'], out_addrs_dict, False, is_coinbase=True)
     
     block_reward = sum(out_addrs_dict.values())
     tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=block_num, 
@@ -100,8 +100,7 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
     tx.save()
     tx.reload()
 
-    BtcAddress.objects(addr__in=lst_addr_objs).update(push__used_as_output=tx.ref_id)
-
+    AddressTransactionLink.objects.insert([AddressTransactionLink(addr_ref_id=x.ref_id, tx_ref_id=tx.ref_id, addr_used_as_input=False) for x in addr_dict.values()])
 
 def save_to_db(tx, block_num):
     """
@@ -142,14 +141,14 @@ def save_to_db(tx, block_num):
     # retrieve/create BtcAddress objects for tx inputs
     for funding_tx, addr, value in in_addrs:
         addr_obj = wealth_data_input[addr]
-        tx_in = TxInputAddrInfo(address=addr_obj.ref_id, value=value, 
+        tx_in = TxInputAddrInfo(address=addr, addr_ref_id=addr_obj.ref_id, value=value, 
             wealth=addr_obj.curr_wealth, tx=funding_tx)
         tx_input_addrs.append(tx_in)
     
     # retrieve/create BtcAddress objects for tx outputs
     for addr, value in out_addrs:
         addr_obj = wealth_data_output[addr]
-        tx_out = TxOutputAddrInfo(address=addr_obj.ref_id, value=value, 
+        tx_out = TxOutputAddrInfo(address=addr, addr_ref_id=addr_obj.ref_id, value=value, 
             wealth=addr_obj.curr_wealth - value)
         tx_output_addrs.append(tx_out)
     
@@ -159,8 +158,13 @@ def save_to_db(tx, block_num):
     tx_obj.save()
     tx_obj.reload()
 
-    BtcAddress.objects(addr__in=lst_input_addrs).update(push__used_as_input=tx_obj.ref_id)
-    BtcAddress.objects(addr__in=lst_output_addrs).update(push__used_as_output=tx_obj.ref_id)
+    addrs_tx_links_input = [AddressTransactionLink(addr_ref_id=x.ref_id, tx_ref_id=tx_obj.ref_id, 
+        addr_used_as_input=True) for x in wealth_data_input.values()]
+    addrs_tx_links_output = [AddressTransactionLink(addr_ref_id=x.ref_id, tx_ref_id=tx_obj.ref_id, 
+        addr_used_as_input=False) for x in wealth_data_output.values()]
+
+    AddressTransactionLink.objects.insert(addrs_tx_links_input + addrs_tx_links_output, 
+        load_bulk=False)
 
 
 def parse_block(rpc_connection, block_num):

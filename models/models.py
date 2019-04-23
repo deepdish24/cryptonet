@@ -32,13 +32,23 @@ class Address(Document):
     ref_id = SequenceField()
     time = IntField(required=True) # time address first shows up in blockchain
     curr_wealth = LongField(default=0)
-    used_as_input = ListField(IntField(), default=list)
-    used_as_output = ListField(IntField(), default=list)
 
     meta = {
         'allow_inheritance': True,
             'indexes': [
                 'ref_id',
                 'curr_wealth'
+        ]
+    }
+
+class AddressTransactionLink(Document):
+    addr_ref_id = IntField(required=True)
+    tx_ref_id = IntField(required=True)
+    addr_used_as_input = BooleanField(required=True)
+
+    meta = {
+        'allow_inheritance': True,
+            'indexes': [
+                'addr_ref_id',
         ]
     }
