@@ -4,9 +4,11 @@ import argparse
 import pickle
 import sys
 
-def get_cc():
+def get_cc(change_addr_clustering=False):
     addrs = {x.ref_id: x for x in BtcAddress.
         objects.only('ref_id', 'neighbor_addrs', 'time').all()}
+
+    # txs = BtcTransaction.objects.all()
 
     num_nodes = max(addrs.keys()) + 1
     print("number of nodes: ", num_nodes)
@@ -41,35 +43,34 @@ def create_graph_file(graph_file, start_time=0, end_time=0, use_pickle=False):
     valid_ref_ids = set(cc_dict.keys())
 
     if start_time == 0 and end_time == 0:
-        txs = BtcTransaction.objects
+        txs = BtcTransaction.objects(coinbase_tx=False)
     elif end_time == 0:
-        txs = BtcTransaction.objects(time__gte=start_time).hint('time')
+        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time).hint('time')
     else:
-        txs = BtcTransaction.objects(time__gte=start_time, time__lte=end_time).hint('time')
+        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time, time__lte=end_time).hint('time')
     
     with open(graph_file, "w") as f:
         for tx in txs.all():
-            ref_ids_set_input = set([x.address for x in tx.input_addrs])
-            ref_ids_set_output = set([x.address for x in tx.output_addrs])
-            if (not (ref_ids_set_input - valid_ref_ids)) or \
-                (not (ref_ids_set_output - valid_ref_ids)):
+            ref_ids_set_input = set([x.addr_ref_id for x in tx.input_addrs])
+            ref_ids_set_output = set([x.addr_ref_id for x in tx.output_addrs])
+
+            if ((ref_ids_set_input - valid_ref_ids)) or \
+                ((ref_ids_set_output - valid_ref_ids)):
                 continue
 
             input_node_wealth = sum([x.wealth for x in tx.input_addrs])
-
-            input_node_creation_time = min(
-                    [BtcAddress.objects(ref_id=x.address)
-                        .only('time').first().time
-                            for x in tx.input_addrs])
+            dct_tmp = {x.addr_ref_id: x for x in tx.input_addrs}
+            # print(tx.hash, tx.coinbase_tx)
+            input_node_creation_time = dct_tmp[min(dct_tmp)].address.fetch().time
+            output_addr_objs_creation_times = {x.address: x.address.fetch().time for x in tx.output_addrs}
 
             
             input_cc_id = cc_dict[ref_ids_set_input.pop()]
 
             for output_addr in tx.output_addrs:
-                output_node_creation_time = BtcAddress.objects(ref_id=output_addr.address) \
-                    .only('time').first().time
+                output_node_creation_time = output_addr_objs_creation_times[output_addr.address]
                 output_node_wealth = output_addr.wealth
-                output_cc_id = cc_dict[output_addr.address]
+                output_cc_id = cc_dict[output_addr.addr_ref_id]
                 line = str(input_cc_id) + "," + str(input_node_creation_time) + "," + \
                     str(input_node_wealth) + "," + str(tx.tx_val) + "," + str(tx.time) + \
                         "," + str(tx.ref_id) + "," + str(output_cc_id) + "," + \
@@ -95,6 +96,7 @@ if __name__ == "__main__":
     parser.add_argument('--schema', action='store_true')
     parser.add_argument('-c', '--cached', action='store_true')
     parser.add_argument('-s', '--store_cc', action='store_true')
+    parser.add_argument('--change_clustering', action='store_true')
     parser.add_argument('integers', 
         nargs='*', help='an integer in the range of min_time to max_time')
     args = parser.parse_args()
@@ -106,7 +108,7 @@ if __name__ == "__main__":
         find_time_window()
     
     if args.store_cc:
-        get_cc()
+        get_cc(change_addr_clustering=args.change_clustering)
 
     if args.download:
         times = args.integers
@@ -117,13 +119,10 @@ if __name__ == "__main__":
         if (len(times) == 0):
             print("Error: need to pass in filename for storing graph")
             sys.exit(1)
-
-        if (len(times) == 1):
+        elif (len(times) == 1):
             create_graph_file(times[0], use_pickle=args.cached)
-        
-        if (len(times) == 1):
+        elif (len(times) == 2):
             create_graph_file(times[1], start_time=int(times[0]), use_pickle=args.cached)
-        
-        if (len(times) == 2):
+        elif (len(times) == 3):
             create_graph_file(times[2], start_time=int(times[0]), 
                 end_time=int(times[1]), use_pickle=args.cached)

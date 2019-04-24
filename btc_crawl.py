@@ -197,8 +197,8 @@ def crawl(starting_block=0):
 
 
 if __name__ == "__main__":
-    starting_block = int(sys.argv[1])
-    #starting_block = 139061
+    # starting_block = int(sys.argv[1])
+    starting_block = 182209
     crawl(starting_block=starting_block)
 
 
