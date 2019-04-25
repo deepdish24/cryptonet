@@ -98,7 +98,7 @@ def parse_coinbase(tx_hash, rpc_connection, block_num):
     tx = BtcTransaction(hash=tx_hash, time=tx['time'], block_num=block_num, 
         tx_fees=0, tx_val=block_reward, coinbase_tx=True)
     tx.save()
-    tx = BtcTransaction(hash=tx_hash).only('ref_id').first()
+    tx = BtcTransaction.objects(hash=tx['hash']).only('ref_id').first()
 
     AddressTransactionLink.objects.insert([AddressTransactionLink(addr_ref_id=x.ref_id, tx_ref_id=tx.ref_id, addr_used_as_input=False) for x in addr_dict.values()])
 
@@ -156,7 +156,7 @@ def save_to_db(tx, block_num):
         block_num=block_num,tx_fees=tx['fees'], tx_val=tx['value'], 
         input_addrs=tx_input_addrs, output_addrs=tx_output_addrs)
     tx_obj.save()
-    tx_obj = BtcTransaction(hash=tx['hash']).only('ref_id').first()
+    tx_obj = BtcTransaction.objects(hash=tx['hash']).only('ref_id').first()
 
     addrs_tx_links_input = [AddressTransactionLink(addr_ref_id=x.ref_id, tx_ref_id=tx_obj.ref_id, 
         addr_used_as_input=True) for x in wealth_data_input.values()]
@@ -197,8 +197,8 @@ def crawl(starting_block=0):
 
 
 if __name__ == "__main__":
-    # starting_block = int(sys.argv[1])
-    starting_block = 183000
+    starting_block = int(sys.argv[1])
+    # starting_block = 183000
     crawl(starting_block=starting_block)
 
 
