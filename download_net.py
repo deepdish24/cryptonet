@@ -1,5 +1,6 @@
 from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutputAddrInfo
 from python_algorithms.basic.union_find import UF
+from datetime import datetime
 import argparse
 import pickle
 import sys
@@ -41,13 +42,14 @@ def create_graph_file(graph_file, start_time=0, end_time=0, use_pickle=False):
     print("====finished getting CC====")
 
     valid_ref_ids = set(cc_dict.keys())
-
+    time_hint = [('_cls', 1), ('time', 1)]
     if start_time == 0 and end_time == 0:
         txs = BtcTransaction.objects(coinbase_tx=False)
     elif end_time == 0:
-        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time).hint('time')
+        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time).hint(time_hint)
     else:
-        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time, time__lte=end_time).hint('time')
+        txs = BtcTransaction.objects(coinbase_tx=False, time__gte=start_time, 
+            time__lte=end_time).hint(time_hint)
     
     with open(graph_file, "w") as f:
         for tx in txs.all():
@@ -60,7 +62,6 @@ def create_graph_file(graph_file, start_time=0, end_time=0, use_pickle=False):
 
             input_node_wealth = sum([x.wealth for x in tx.input_addrs])
             dct_tmp = {x.addr_ref_id: x for x in tx.input_addrs}
-            # print(tx.hash, tx.coinbase_tx)
             input_node_creation_time = dct_tmp[min(dct_tmp)].address.fetch().time
             output_addr_objs_creation_times = {x.address: x.address.fetch().time for x in tx.output_addrs}
 
@@ -84,10 +85,14 @@ def documentation():
         <output_node_id>,<output_node_creation_time>,<output_node_wealth_at_tx>")
 
 def find_time_window():
-    min_time = BtcAddress.objects.order_by("+ref_id").limit(-1).first()
-    max_time = BtcAddress.objects.order_by("-ref_id").limit(-1).first()
-    print("Min Time: ", min_time.time)
-    print("Max Time: ", max_time.time)
+    min_time = BtcAddress.objects.order_by("+ref_id").limit(-1).first().time
+    max_time = BtcAddress.objects.order_by("-ref_id").limit(-1).first().time
+    print("Min Time: ", datetime.utcfromtimestamp(min_time).strftime('%Y-%m-%d %H:%M:%S'))
+    print("Max Time: ", datetime.utcfromtimestamp(max_time).strftime('%Y-%m-%d %H:%M:%S'))
+
+def get_time_stamp(time_string):
+    dt = datetime.strptime(time_string, "%Y-%m-%d")
+    return (int) (dt.timestamp())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download blockchain data as graph')
@@ -122,7 +127,11 @@ if __name__ == "__main__":
         elif (len(times) == 1):
             create_graph_file(times[0], use_pickle=args.cached)
         elif (len(times) == 2):
-            create_graph_file(times[1], start_time=int(times[0]), use_pickle=args.cached)
+            time_stamp = get_time_stamp(times[0])
+            create_graph_file(times[1], start_time=time_stamp, use_pickle=args.cached)
         elif (len(times) == 3):
-            create_graph_file(times[2], start_time=int(times[0]), 
-                end_time=int(times[1]), use_pickle=args.cached)
+            print(times)
+            start_time_stamp = get_time_stamp(times[0])
+            end_time_stamp = get_time_stamp(times[1])
+            create_graph_file(times[2], start_time=start_time_stamp, 
+                end_time=end_time_stamp, use_pickle=args.cached)
