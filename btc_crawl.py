@@ -185,7 +185,7 @@ def parse_block(rpc_connection, block_num):
             sys.exit(1)
             
 
-def crawl(starting_block=0, rpc_connection):
+def crawl(rpc_connection, starting_block=0):
     best_block_hash = rpc_connection.getbestblockhash()
     tgt_block_height = rpc_connection.getblock(best_block_hash)['height']
 
@@ -196,17 +196,33 @@ def crawl(starting_block=0, rpc_connection):
 
 
 def get_next_block_to_parse(rpc_connection):
+    """
+    Function goes through crawled transaction data and finds the next block to crawl.
+
+    Each time the crawler is started, this function is used to find the next block to
+    start crawling at.
+
+    Parameters:
+        rpc_connection (RpcConnection object): object allowing for RPC calls to bitcoind daemon
+
+    Returns:
+        int: block number of next block to start crawling at
+    """
     tx_record = BtcTransaction.objects(coinbase_tx=True).order_by('-ref_id').limit(1).first()
+
+    if not tx_record:
+        return 1
+
     tx = get_raw_tx(tx_record.hash, rpc_connection)
-    print(tx)
+    block_hash = tx['blockhash']
+    block_data = rpc_connection.getblock(block_hash)
+    return block_data['height']
 
 
 if __name__ == "__main__":
     rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
-    get_next_block_to_parse(rpc_connection)
-    # starting_block = int(sys.argv[1])
-    # starting_block = 183000
-    # crawl(starting_block=starting_block, rpc_connection)
+    next_block = get_next_block_to_parse(rpc_connection)
+    crawl(rpc_connection, starting_block=next_block)
 
 
 
