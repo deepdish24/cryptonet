@@ -185,8 +185,7 @@ def parse_block(rpc_connection, block_num):
             sys.exit(1)
             
 
-def crawl(starting_block=0):
-    rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
+def crawl(starting_block=0, rpc_connection):
     best_block_hash = rpc_connection.getbestblockhash()
     tgt_block_height = rpc_connection.getblock(best_block_hash)['height']
 
@@ -196,10 +195,18 @@ def crawl(starting_block=0):
         starting_block += 1
 
 
+def get_next_block_to_parse(rpc_connection):
+    tx_record = BtcTransaction.objects(coinbase_tx=True).order_by('-ref_id').limit(1).first()
+    tx = get_raw_tx(tx_record.hash, rpc_connection)
+    print(tx)
+
+
 if __name__ == "__main__":
-    starting_block = int(sys.argv[1])
+    rpc_connection = AuthServiceProxy("http://%s:%s@127.0.0.1:8332" % (rpc_user, rpc_passwd))
+    get_next_block_to_parse(rpc_connection)
+    # starting_block = int(sys.argv[1])
     # starting_block = 183000
-    crawl(starting_block=starting_block)
+    # crawl(starting_block=starting_block, rpc_connection)
 
 
 
