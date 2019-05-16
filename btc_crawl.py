@@ -1,7 +1,7 @@
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from btc_functions import get_tx, get_out_addrs, get_in_addrs, get_raw_tx, coalesce_input_addrs
 from models.BtcModels import BtcAddress, BtcTransaction, TxInputAddrInfo, TxOutputAddrInfo
-from models.models import AddressTransactionLink
+from models.models import AddressTransactionLink, UnionFindNode
 import traceback
 import sys
 
@@ -10,6 +10,13 @@ rpc_passwd = "passwd"
 # curr_block = 119910
 # curr_block = 100000
 # curr_block = 0
+
+def find_parent_node(node_id):
+    UnionFindNode(addr_ref_id=node_id)
+    pass
+
+def union_nodes(parent_id, child_ids):
+    pass
 
 # Function retrives an address object for the given wallet address.
 # If wallet addreass has not been, new object is created

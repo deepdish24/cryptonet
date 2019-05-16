@@ -52,3 +52,8 @@ class AddressTransactionLink(Document):
                 'addr_ref_id',
         ]
     }
+
+class UnionFindNode(Document):
+    addr_ref_id = IntField(primary_key=True)
+    parent_id = IntField(required=True)
+    children = ListField(LazyReferenceField(UnionFindNode))

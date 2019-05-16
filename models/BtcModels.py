@@ -15,7 +15,7 @@ def get_db_credentials(credentials_file):
 
 credentials = get_db_credentials('credentials/mongo_credentials')
 connect(
-    db='fast_cryptodb', 
+    db='fast_and_furious_cryptodb', 
     host=credentials['host'], 
     username=credentials['username'], 
     password=credentials['password'], 
@@ -45,3 +45,4 @@ class BtcTransaction(Transaction):
     coinbase_tx = BooleanField(default=False)
     input_addrs = ListField(EmbeddedDocumentField(TxInputAddrInfo), default=list)
     output_addrs = ListField(EmbeddedDocumentField(TxOutputAddrInfo), default=list)
+
