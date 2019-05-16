@@ -7,7 +7,7 @@ import sys
 
 def get_cc(change_addr_clustering=False):
     addrs = {x.ref_id: x for x in BtcAddress.
-        objects.only('ref_id', 'neighbor_addrs', 'time').all()}
+        objects.only('ref_id', 'neighbor_addrs').all()}
 
     # txs = BtcTransaction.objects.all()
 
