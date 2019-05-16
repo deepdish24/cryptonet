@@ -33,7 +33,7 @@ def check_otc_conditions(output_tx, change_addr_id):
 
     return True
 
-def get_cc(change_addr_clustering=False):
+def get_cc():
     addrs = {x.ref_id: x for x in BtcAddress.
         objects.only('ref_id', 'neighbor_addrs').all()}
 
@@ -57,7 +57,7 @@ def get_cc(change_addr_clustering=False):
     uf_dict = {x: union_find.find(x) for x in addrs.keys()}
 
     for addr_ref_id in possible_otc_addrs:
-         num_txs_using_addr_as_input = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
+        num_txs_using_addr_as_input = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
             addr_used_as_input=True).count()
         num_txs_using_addr_as_output = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
             addr_used_as_input=False).count()
@@ -148,7 +148,6 @@ if __name__ == "__main__":
     parser.add_argument('--schema', action='store_true')
     parser.add_argument('-c', '--cached', action='store_true')
     parser.add_argument('-s', '--store_cc', action='store_true')
-    parser.add_argument('--change_clustering', action='store_true')
     parser.add_argument('integers', 
         nargs='*', help='an integer in the range of min_time to max_time')
     args = parser.parse_args()
@@ -160,7 +159,7 @@ if __name__ == "__main__":
         find_time_window()
     
     if args.store_cc:
-        get_cc(change_addr_clustering=args.change_clustering)
+        get_cc()
 
     if args.download:
         times = args.integers
