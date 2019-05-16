@@ -5,11 +5,37 @@ import argparse
 import pickle
 import sys
 
+def check_otc_conditions(output_tx, change_addr_id):
+    # transaction cannot be a coinbase transaction
+    if output_tx.coinbase_tx:
+        return False
+
+    tx_input_addrs = set([x.address for x in output_tx.input_addrs])
+    tx_output_addrs = set([x.address for x in output_tx.output_addrs])
+
+    # there cannot exist a self-change address (i.e an input address
+    # also shows up in the output)
+    if tx_input_addrs.intersection(tx_output_addrs):
+        return False
+    
+    # all other output address have been seen before
+    for addr in output_tx.output_addrs:
+        if addr.addr_ref_id == change_addr_id:
+            continue
+        
+        addr_links_input = AddressTransactionLink.objects(addr_ref_id=addr.addr_ref_id, 
+            addr_used_as_input=True).count()
+        addr_links_output = AddressTransactionLink.objects(addr_ref_id=addr.addr_ref_id, 
+            addr_used_as_input=False).count()
+
+        if addr_links_input == 0 and addr_links_output <= 1:
+            return False
+
+    return True
+
 def get_cc(change_addr_clustering=False):
     addrs = {x.ref_id: x for x in BtcAddress.
         objects.only('ref_id', 'neighbor_addrs').all()}
-
-    # txs = BtcTransaction.objects.all()
 
     num_nodes = max(addrs.keys()) + 1
     print("number of nodes: ", num_nodes)
@@ -17,13 +43,34 @@ def get_cc(change_addr_clustering=False):
     union_find = UF(num_nodes)
 
     print("identifying nodes...")
+    possible_otc_addrs = []
+
     for identifer, addr_obj in addrs.items():
         neighbor_addrs = addr_obj.neighbor_addrs
-        for reference in neighbor_addrs:
-            union_find.union(reference, identifer)
+        if len(neighbor_addrs) != 0:
+            for reference in neighbor_addrs:
+                union_find.union(reference, identifer)
+        else:
+            possible_otc_addrs.append(identifer)
     print("=====union find done=====")
 
     uf_dict = {x: union_find.find(x) for x in addrs.keys()}
+
+    for addr_ref_id in possible_otc_addrs:
+         num_txs_using_addr_as_input = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
+            addr_used_as_input=True).count()
+        num_txs_using_addr_as_output = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
+            addr_used_as_input=False).count()
+        
+        if num_txs_using_addr_as_input == 0 and num_txs_using_addr_as_output == 1:
+            output_tx_link = AddressTransactionLink.objects(addr_ref_id=addr_ref_id, 
+                addr_used_as_input=False).only('tx_ref_id').first()
+            output_tx = BtcTransaction.objects(ref_id=output_tx_link.tx_ref_id).first()
+            otc_addr = check_otc_conditions(output_tx, addr_ref_id)
+            if otc_addr:
+                input_addr = output_tx.input_addrs[0].addr_ref_id
+                node_id = uf_dict[input_addr]
+                uf_dict[addr_ref_id] = node_id
 
     with open("pickles/cc.pickle", "wb") as f:
         pickle.dump(uf_dict, f)
