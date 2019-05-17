@@ -140,10 +140,15 @@ def get_cc_for_addrs(addr_ids):
     
     # retrieve all addresses necessary for transactions
     # that yet to be clustered
-    print("retrieving nodes in transaction...")
-    addrs = {x.ref_id: x for x in BtcAddress.objects(
-            ref_id__in=addr_ids_list).only('ref_id', 'neighbor_addrs').all()}
-    print("done retrieving nodes...")
+    print("retrieving addrs in transaction...")
+    addrs = {}
+    '''qset = BtcAddress.objects(
+            ref_id__in=addr_ids_list).only('ref_id', 'neighbor_addrs')
+    for addr in qset:
+        addrs[addr.ref_id] = addr'''
+    for addr_id in addr_ids_list:
+        addrs[addr_id] = BtcAddress.objects(ref_id=addr_id).only('ref_id', 'neighbor_addrs').first()
+    print("done retrieving addrs...")
 
     # normalize address ids to set of [0, num_addrs]
     addrs_to_normalized_addrs = {}
