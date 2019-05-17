@@ -4,7 +4,7 @@ MongoDB ORM models for Bitcoin Transaction Data
 from mongoengine import *
 from models.models import Transaction, Address
 
-def get_db_credentials(credentials_file):
+def get_credentials(credentials_file):
     credentials_dict = {}
     with open(credentials_file) as f:
         for line in f.readlines():
@@ -13,7 +13,7 @@ def get_db_credentials(credentials_file):
             credentials_dict[key] = value
     return credentials_dict
 
-credentials = get_db_credentials('credentials/mongo_credentials')
+credentials = get_credentials('credentials/mongo_credentials')
 connect(
     db='fast_cryptodb', 
     host=credentials['host'], 

@@ -65,7 +65,13 @@ def compute_otc_stats():
             if otc_addr:
                 print("OTC ADDR!!")
                 print("========================")
+
+
+def test():
+    num_addrs = BtcAddress.objects().count()
+    print(num_addrs)
         
 
 if __name__ == "__main__":
-    compute_otc_stats()
+    # compute_otc_stats()
+    test()
